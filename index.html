@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Snackchat AI | Gen-Z Commerce OS (AI-enhanced)</title>
+    <meta name="theme-color" content="#050505" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Original UI resources (unchanged) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet" />
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Outfit', 'sans-serif'], mono: ['Space Grotesk', 'monospace'] },
+                    colors: {
+                        neon: { red: '#FF5E5E', green: '#78FFD6', blue: '#2E8FFF', purple: '#D500F9', yellow: '#FAFF00' },
+                        dark: { 900: '#050505', 800: '#0F0F0F', 700: '#1A1A1A', 600: '#2A2A2A' }
+                    },
+                    animation: { 'blob': 'blob 15s infinite alternate', 'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite' },
+                    keyframes: {
+                        blob: { '0%': { transform: 'translate(0, 0) scale(1)' }, '33%': { transform: 'translate(30px, -50px) scale(1.1)' }, '66%': { transform: 'translate(-20px, 20px) scale(0.9)' }, '100%': { transform: 'translate(0px, 0px) scale(1)' } }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #050505; color: white; -webkit-tap-highlight-color: transparent; overflow: hidden; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-panel { background: rgba(20, 20, 20, 0.7); backdrop-filter: blur(24px); border-top: 1px solid rgba(255, 255, 255, 0.1); }
+        .glass-btn:active { transform: scale(0.96); }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .gradient-text { background: linear-gradient(to right, #FF5E5E, #D500F9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .float-anim { animation: float 6s ease-in-out infinite; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+        .ai-btn { background: linear-gradient(90deg,#D500F9,#2E8FFF); color: white; padding: 8px 12px; border-radius: 12px; font-weight:700; }
+        .micro { font-size: 12px; }
+        /* Co-founder block tweaks */
+        .founders { margin-top: 1rem; color: #cbd5e1; }
+        .founders .names { display:flex; gap:0.5rem; flex-direction:column; align-items:center; justify-content:center; }
+        .founders .names p { margin:0; color:#fff; font-weight:600; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        /**********************************************************************
+         * Final corrected Snackchat4 (single file)
+         * - UI preserved exactly as uploaded
+         * - AI features injected and wired
+         * - Client-side DeepSeek key embedded for testing (option A)
+         *
+         * Note: Co-founders block inserted as valid JSX (no HTML comments / class=)
+         **********************************************************************/
+
+        const { useState, useEffect, useRef } = React;
+        const { motion, AnimatePresence } = window.Motion;
+
+        // -----------------------
+        // AI CONFIG (client-side key for testing)
+        // -----------------------
+        const DEEPSEEK_CLIENT_KEY = "sk-2a0051fde2fd4f6d8e587abc872ee100"; // <<-- EMBEDDED FOR TESTING (visible)
+        const DEEPSEEK_ENDPOINT = "https://api.deepseek.com/v1/chat/completions";
+
+        async function deepseekChat(prompt, opts = {}) {
+            const model = opts.model || "deepseek-chat";
+            const temperature = typeof opts.temperature === 'number' ? opts.temperature : 0.7;
+            const max_tokens = opts.max_tokens || 512;
+
+            try {
+                const proxyResp = await fetch("/api/deepseek/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ model, prompt, temperature, max_tokens })
+                });
+                if (proxyResp.ok) {
+                    const json = await proxyResp.json();
+                    if (typeof json.text === 'string') return json.text;
+                    if (json?.choices?.[0]?.message?.content) return json.choices[0].message.content;
+                    if (json?.choices?.[0]?.text) return json.choices[0].text;
+                    return JSON.stringify(json);
+                }
+            } catch (e) {
+                // proxy likely not deployed; fallback to client call
+            }
+
+            if (!DEEPSEEK_CLIENT_KEY) return "⚠️ DeepSeek key not configured.";
+            try {
+                const resp = await fetch(DEEPSEEK_ENDPOINT, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${DEEPSEEK_CLIENT_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model,
+                        messages: [{ role: "user", content: prompt }],
+                        temperature,
+                        max_tokens
+                    })
+                });
+                const data = await resp.json();
+                if (data?.choices?.[0]?.message?.content) return data.choices[0].message.content;
+                if (data?.choices?.[0]?.text) return data.choices[0].text;
+                return JSON.stringify(data);
+            } catch (err) {
+                console.error("DeepSeek client error:", err);
+                return "⚠️ DeepSeek request failed. Check console for details.";
+            }
+        }
+
+        // -----------------------
+        // App data & helpers (unchanged)
+        // -----------------------
+        const SEED_DATA = {
+            user: { name: "Guest", karma: 420, streak: 3, level: 5, xp: 2400, maxXp: 5000 },
+            vendors: [
+                { id: 1, name: "Tapri Central", rating: 4.9, wait: 5, img: "☕", vibe: "Chill", tags: ["Tea", "Snacks"] },
+                { id: 2, name: "Momo King", rating: 4.7, wait: 12, img: "🥟", vibe: "Spicy", tags: ["Street", "Tibetan"] },
+                { id: 3, name: "Burger Singh", rating: 4.5, wait: 20, img: "🍔", vibe: "Loud", tags: ["Fast Food"] },
+                { id: 4, name: "Dosa Plaza", rating: 4.8, wait: 8, img: "🥘", vibe: "Family", tags: ["South Indian"] }
+            ],
+            menu: [
+                { id: 101, vid: 1, name: "Masala Chai", price: 20, tags: ["Bestseller", "Hot"], type: "veg", desc: "Ginger cardamom blast" },
+                { id: 102, vid: 1, name: "Bun Maska", price: 40, tags: ["Classic"], type: "veg", desc: "Fresh bun with Amul butter" },
+                { id: 103, vid: 1, name: "Maggi Masala", price: 50, tags: ["Student Fuel"], type: "veg", desc: "With extra veggies" },
+                { id: 201, vid: 2, name: "Chicken Steam", price: 120, tags: ["Spicy"], type: "non-veg", desc: "8 pcs with red chutney" },
+                { id: 202, vid: 2, name: "Veg Fried Momos", price: 100, tags: ["Crunchy"], type: "veg", desc: "Crispy delight" },
+                { id: 301, vid: 3, name: "Aloo Tikki Burger", price: 80, tags: ["Filling"], type: "veg", desc: "Indian style patty" },
+                { id: 302, vid: 3, name: "Crispy Chicken", price: 150, tags: ["Juicy"], type: "non-veg", desc: "Double patty madness" },
+                { id: 401, vid: 4, name: "Masala Dosa", price: 90, tags: ["Crispy"], type: "veg", desc: "Served with sambar" }
+            ],
+            orders: [],
+            feed: [
+                { id: 1, text: "Simran gifted Chai ☕ to Raj", time: "2m ago", type: "gift" },
+                { id: 2, text: "Hostel 4 hit a 100-Order Streak! 🔥", time: "10m ago", type: "streak" },
+                { id: 3, text: "Rahul just ordered 12 Momos 🥟", time: "15m ago", type: "order" }
+            ],
+            chatHistory: [{role:'ai', text:'👨‍🍳 VendorGPT: System Online. I have analyzed your menu. Sales are trending up!'}]
+        };
+
+        const useStickyState = (defaultValue, key) => {
+            const [value, setValue] = useState(() => {
+                const stickyValue = window.localStorage.getItem(key);
+                return stickyValue !== null ? JSON.parse(stickyValue) : defaultValue;
+            });
+            useEffect(() => {
+                window.localStorage.setItem(key, JSON.stringify(value));
+            }, [key, value]);
+            return [value, setValue];
+        };
+
+        // AI prompt helper functions (unchanged)
+        async function generatePromoText(vendorName, db) {
+            const ctx = { revenue: db.orders.reduce((a,b)=>a+b.total,0), recentOrders: db.orders.slice(0,8) };
+            const prompt = `You are a Gen-Z growth marketer. Create a viral promo for ${vendorName}.
+Return JSON: {"headline":"...","offer":"...","cta":"...","captions":["...","..."]}.
+Context: ${JSON.stringify(ctx)}`;
+            const r = await deepseekChat(prompt, { temperature: 0.82, max_tokens: 300 });
+            try { return JSON.parse(r); } catch { return { raw: r }; }
+        }
+
+        async function generateMenuDesc(item) {
+            const prompt = `Write an 8-12 word Gen-Z menu description for "${item.name}". Original: "${item.desc}". Include one emoji.`;
+            const r = await deepseekChat(prompt, { temperature: 0.72, max_tokens: 120 });
+            return r;
+        }
+
+        async function predictOrders(db) {
+            const prompt = `Analyze recent orders: ${JSON.stringify(db.orders.slice(0,50))}. Predict busiest hour in next 1 hour and top 3 selling items (names) with short confidence.`;
+            return await deepseekChat(prompt, { temperature: 0.25, max_tokens: 220 });
+        }
+
+        async function suggestUpsells(cart, db) {
+            const prompt = `Suggest 2 add-on upsells for this cart: ${JSON.stringify(cart)}. Menu: ${JSON.stringify(db.menu)}. Return short suggestions with estimated price.`;
+            return await deepseekChat(prompt, { temperature: 0.7, max_tokens: 180 });
+        }
+
+        async function customerAssistant(query, db) {
+            const prompt = `You are Snackchat Customer Assistant. Menu: ${JSON.stringify(db.menu)}. Recent orders: ${JSON.stringify(db.orders.slice(0,10))}. User asks: "${query}". Return 2 suggestions and 1 upsell (short).`;
+            return await deepseekChat(prompt, { temperature: 0.7, max_tokens: 220 });
+        }
+
+        async function generateSocialCaptions(summary) {
+            const prompt = `Write 3 short social captions (emoji friendly, max 15 words each) for: ${summary}`;
+            return await deepseekChat(prompt, { temperature: 0.85, max_tokens: 160 });
+        }
+
+        async function vendorGPT(question, db) {
+            const prompt = `VendorGPT: context: ${JSON.stringify({ orders: db.orders.slice(0,20), revenue: db.orders.reduce((a,b)=>a+b.total,0) })}. Question: ${question}. Give a concise actionable reply (2-4 lines). Also suggest one action.`;
+            return await deepseekChat(prompt, { temperature: 0.5, max_tokens: 300 });
+        }
+
+        async function analyzeFeedback(db) {
+            const feedbacks = db.feed.map(f=>f.text).slice(0,40);
+            const prompt = `Analyze these feedback items. Return overall sentiment and top 3 recommended actions. Feedbacks: ${JSON.stringify(feedbacks)}`;
+            return await deepseekChat(prompt, { temperature: 0.2, max_tokens: 250 });
+        }
+
+        async function generateFAQ(db) {
+            const prompt = `Create 6 short FAQ Q&A items for a vendor based on this menu: ${JSON.stringify(db.menu)}. Return as JSON array of {q,a}.`;
+            const r = await deepseekChat(prompt, { temperature: 0.2, max_tokens: 350 });
+            try { return JSON.parse(r); } catch { return r; }
+        }
+
+        // -----------------------
+        // Main App
+        // -----------------------
+        const App = () => {
+            const [view, setView] = useState('landing');
+            const [db, setDb] = useStickyState(SEED_DATA, 'snackchat_v2_db');
+            const [cart, setCart] = useState([]);
+            const [aiBusy, setAiBusy] = useState(false);
+
+            const addToCart = (item) => setCart(prev => [...prev, { ...item, cartId: Date.now() }]);
+            const removeFromCart = (cartId) => setCart(prev => prev.filter(i => i.cartId !== cartId));
+
+            const placeOrder = () => {
+                if(cart.length === 0) return;
+                const total = cart.reduce((a,b) => a + b.price, 0);
+                const newOrder = {
+                    id: `ORD-${Math.floor(Math.random() * 90000)}`,
+                    customer: db.user.name,
+                    items: cart,
+                    total: total,
+                    status: 'pending',
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    timestamp: Date.now()
+                };
+                setDb(prev => ({
+                    ...prev,
+                    orders: [newOrder, ...prev.orders],
+                    user: { ...prev.user, karma: prev.user.karma + 15, xp: prev.user.xp + Math.floor(total/5) },
+                    feed: [{ id: Date.now(), text: `You ordered ₹${total}`, time: "Just now", type: "order" }, ...prev.feed]
+                }));
+                setCart([]);
+            };
+
+            const resetData = () => {
+                if(confirm("Reset entire app data?")) {
+                    setDb(SEED_DATA);
+                    window.location.reload();
+                }
+            };
+
+            return (
+                <div className="h-screen w-full bg-dark-900 font-sans text-white overflow-hidden relative selection:bg-neon-red selection:text-white">
+                    <div className="absolute top-[-30%] left-[-20%] w-[600px] h-[600px] bg-neon-red/10 rounded-full blur-[120px] animate-blob"></div>
+                    <div className="absolute bottom-[-30%] right-[-20%] w-[600px] h-[600px] bg-neon-green/10 rounded-full blur-[120px] animate-blob" style={{animationDelay:'5s'}}></div>
+
+                    <AnimatePresence mode="wait">
+                        {view === 'landing' && <Landing key="landing" setView={setView} />}
+                        {view === 'customer' && <Customer key="customer" setView={setView} db={db} setDb={setDb} addToCart={addToCart} cart={cart} removeFromCart={removeFromCart} placeOrder={placeOrder} setAiBusy={setAiBusy} />}
+                        {view === 'vendor' && <VendorOS key="vendor" setView={setView} db={db} setDb={setDb} resetData={resetData} setAiBusy={setAiBusy} />}
+                    </AnimatePresence>
+
+                    <div className="absolute bottom-4 right-4 z-50">
+                        <div className="glass p-3 rounded-xl text-xs">
+                            <div>AI Status: {aiBusy ? "Working..." : "Idle"}</div>
+                            <div className="text-[10px] text-gray-400">Key: client-side (testing)</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Landing: valid JSX + co-founders block placed before footer label (option B)
+        const Landing = ({ setView }) => (
+            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0, scale:0.95}} className="h-full flex flex-col items-center justify-center p-6 text-center z-10 relative">
+                <div className="mb-10 relative float-anim">
+                    <div className="absolute inset-0 bg-neon-red blur-3xl opacity-30 animate-pulse"></div>
+                    <div className="relative glass p-10 rounded-[40px] border border-neon-red/30 shadow-[0_0_60px_rgba(255,94,94,0.2)]">
+                        <i className="fa-solid fa-burger text-7xl text-neon-red drop-shadow-[0_0_10px_rgba(255,94,94,0.8)]"></i>
+                    </div>
+                </div>
+                <h1 className="text-6xl font-black tracking-tighter mb-2 leading-none">
+                    Snackchat<span className="text-neon-red">.</span>
+                </h1>
+                <p className="text-gray-400 text-lg mb-6 font-medium">The <span className="text-neon-green">Commerce OS</span> for Gen-Z.</p>
+
+                {/* Co-Founders Section (JSX-safe) */}
+                <div className="founders glass p-4 rounded-2xl max-w-md mx-auto mb-6">
+                    <p className="text-xs uppercase tracking-widest mb-2 text-gray-500">Meet Our Co-Founders</p>
+                    <div className="names">
+                        <p>Kuldeep Chapanera</p>
+                        <p>Supriya Chourasia</p>
+                    </div>
+                    <div className="mt-3 text-[12px] text-gray-400">Building Snackchat with ❤️ for India 🇮🇳</div>
+                </div>
+
+                <div className="w-full max-w-xs space-y-4">
+                    <button onClick={() => setView('customer')} className="group w-full py-4 bg-white text-black rounded-2xl font-black text-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-200 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                        <i className="fa-solid fa-qrcode"></i> I'm Hungry
+                    </button>
+                    <button onClick={() => setView('vendor')} className="w-full py-4 glass text-white rounded-2xl font-bold text-xl hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/10">
+                        <i className="fa-solid fa-store"></i> Vendor Portal
+                    </button>
+                </div>
+                <div className="absolute bottom-6 text-xs text-gray-600 font-mono">v2.1 AI Demo</div>
+            </motion.div>
+        );
+
+        // Customer (unchanged except AI actions)
+        const Customer = ({ setView, db, setDb, addToCart, cart, removeFromCart, placeOrder, setAiBusy }) => {
+            const [activeVendor, setActiveVendor] = useState(null);
+            const [filter, setFilter] = useState('all');
+            const [aiReply, setAiReply] = useState(null);
+
+            const getFilteredMenu = (vid) => {
+                let items = db.menu.filter(i => i.vid === vid);
+                if (filter !== 'all') items = items.filter(i => i.type === filter);
+                return items;
+            };
+
+            const handleGenerateMenuDesc = async (item) => {
+                setAiReply("Generating...");
+                setAiBusy(true);
+                const short = await generateMenuDesc(item);
+                setDb(prev => ({ ...prev, menu: prev.menu.map(m => m.id === item.id ? { ...m, desc: short } : m) }));
+                setAiReply(`New description: ${short}`);
+                setTimeout(()=> setAiReply(null), 3500);
+                setAiBusy(false);
+            };
+
+            const handleRecommendCombos = async () => {
+                setAiReply("Thinking combos...");
+                setAiBusy(true);
+                const resp = await deepseekChat(`You are a food assistant. Menu: ${JSON.stringify(db.menu)}. Suggest 3 combos for students under ₹200. Return short lines.`);
+                setAiReply(resp);
+                setAiBusy(false);
+            };
+
+            const handleGetUpsell = async () => {
+                setAiReply("Suggesting upsells...");
+                setAiBusy(true);
+                const r = await suggestUpsells(cart, db);
+                setAiReply(r);
+                setAiBusy(false);
+            };
+
+            const handleShareCaption = async () => {
+                const summary = `Items: ${cart.map(i=>i.name).join(", ")} | Total: ₹${cart.reduce((a,b)=>a+b.price,0)}`;
+                setAiBusy(true);
+                const r = await generateSocialCaptions(summary);
+                setAiReply(r);
+                setAiBusy(false);
+            };
+
+            return (
+                <motion.div initial={{x:'100%'}} animate={{x:0}} exit={{x:'100%'}} transition={{type:'spring', damping:20}} className="h-full flex flex-col bg-dark-900">
+                    <div className="p-4 pt-6 flex justify-between items-center glass-panel sticky top-0 z-30">
+                        <div className="flex items-center gap-3" onClick={() => activeVendor ? setActiveVendor(null) : setView('landing')}>
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-red to-neon-purple flex items-center justify-center font-black text-xl shadow-lg shadow-neon-red/20 cursor-pointer">S</div>
+                            <div>
+                                <h2 className="font-bold text-lg leading-none tracking-tight">Snackchat</h2>
+                                <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">IIT Bombay 📍</p>
+                            </div>
+                        </div>
+                        <div className="glass px-3 py-1.5 rounded-full flex items-center gap-2 border border-neon-green/30">
+                            <i className="fa-solid fa-bolt text-neon-green text-xs animate-pulse"></i>
+                            <span className="font-bold font-mono text-sm">{db.user.xp} XP</span>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto pb-32 hide-scroll scroll-smooth">
+                        {activeVendor ? (
+                            <div className="min-h-full">
+                                <div className="h-48 bg-dark-800 relative flex items-end p-4 bg-cover bg-center" style={{backgroundImage: `linear-gradient(to top, #050505, transparent), url('https://source.unsplash.com/random/800x400/?restaurant,neon')`}}>
+                                    <button onClick={() => setActiveVendor(null)} className="absolute top-4 left-4 glass w-10 h-10 rounded-full flex items-center justify-center text-white active:scale-90"><i className="fa-solid fa-arrow-left"></i></button>
+                                    <div className="w-full">
+                                        <h1 className="text-4xl font-black mb-1">{activeVendor.name}</h1>
+                                        <div className="flex gap-2 text-xs">
+                                            <span className="bg-neon-green text-black px-2 py-0.5 rounded font-bold">OPEN</span>
+                                            <span className="glass px-2 py-0.5 rounded">⭐ {activeVendor.rating}</span>
+                                            <span className="glass px-2 py-0.5 rounded">🕒 {activeVendor.wait} mins</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="sticky top-0 bg-dark-900/90 backdrop-blur z-20 p-4 border-b border-white/5 flex gap-2 overflow-x-auto">
+                                    {['all', 'veg', 'non-veg'].map(f => (
+                                        <button key={f} onClick={()=>setFilter(f)} className={`px-4 py-2 rounded-xl text-sm font-bold capitalize transition-colors ${filter===f ? 'bg-white text-black' : 'glass text-gray-400'}`}>
+                                            {f}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="p-4 space-y-4">
+                                    {getFilteredMenu(activeVendor.id).map(item => (
+                                        <div key={item.id} className="glass p-4 rounded-2xl flex justify-between items-center gap-4 group">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    {item.type === 'veg' ? <i className="fa-solid fa-circle text-[10px] text-green-500 border border-green-500 p-0.5 rounded-sm"></i> : <i className="fa-solid fa-caret-up text-[10px] text-red-500 border border-red-500 p-0.5 rounded-sm"></i>}
+                                                    <h3 className="font-bold text-lg leading-tight">{item.name}</h3>
+                                                </div>
+                                                <p className="text-gray-500 text-xs mb-2 line-clamp-1">{item.desc}</p>
+                                                <p className="font-mono font-bold text-neon-green">₹{item.price}</p>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-2">
+                                                 {item.tags.length > 0 && <span className="text-[9px] bg-white/10 px-2 py-0.5 rounded uppercase font-bold tracking-wider text-neon-blue">{item.tags[0]}</span>}
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => addToCart({...item, vid: activeVendor.id})} className="w-10 h-10 bg-white text-black rounded-xl flex items-center justify-center hover:bg-neon-red hover:text-white transition-colors shadow-lg active:scale-90"><i className="fa-solid fa-plus"></i></button>
+                                                    <button title="AI description" onClick={()=>handleGenerateMenuDesc(item)} className="w-10 h-10 glass rounded-xl flex items-center justify-center hover:bg-white/5 active:scale-95"><i className="fa-solid fa-robot"></i></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {getFilteredMenu(activeVendor.id).length === 0 && <div className="text-center py-10 text-gray-500">No items found in this category 🥬</div>}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="p-4 space-y-8">
+                                <div>
+                                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1">Daily Vibe</h3>
+                                    <div className="flex gap-4 overflow-x-auto hide-scroll pb-2">
+                                        {['Offers', 'Events', 'Crushes', 'Fests'].map((s, i) => (
+                                            <div key={i} className="flex flex-col items-center gap-2 min-w-[72px] cursor-pointer group">
+                                                <div className="w-18 h-18 rounded-full border-2 border-neon-red p-1 group-hover:scale-105 transition-transform">
+                                                    <div className="w-16 h-16 bg-dark-800 rounded-full flex items-center justify-center text-2xl glass shadow-inner">
+                                                        {['🔥','🎉','💖','🎵'][i]}
+                                                    </div>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-gray-400 group-hover:text-white">{s}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="glass p-5 rounded-3xl border border-white/5 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 opacity-20 text-6xl rotate-12">📢</div>
+                                    <div className="flex justify-between items-center mb-4 relative z-10">
+                                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Campus Live</h3>
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 bg-neon-green rounded-full animate-pulse"></span>
+                                            <span className="text-[10px] text-neon-green">LIVE</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-4 max-h-32 overflow-y-auto hide-scroll relative z-10">
+                                        {db.feed.map((f, i) => (
+                                            <motion.div initial={{opacity:0, x:-10}} animate={{opacity:1, x:0}} key={f.id} className="flex gap-3 text-sm items-start">
+                                                <div className={`mt-1 w-1.5 h-1.5 rounded-full ${f.type==='gift'?'bg-neon-purple shadow-[0_0_10px_#D500F9]': f.type==='streak'?'bg-neon-red shadow-[0_0_10px_#FF5E5E]':'bg-neon-blue'}`}></div>
+                                                <div>
+                                                    <p className="text-gray-200 text-xs leading-relaxed">{f.text}</p>
+                                                    <span className="text-[9px] text-gray-600 font-mono">{f.time}</span>
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                    <div className="mt-3 flex gap-2">
+                                        <button className="glass py-2 px-3 rounded-xl text-sm" onClick={async ()=>{
+                                            setAiReply("Generating feed...");
+                                            setAiBusy(true);
+                                            const u = await deepseekChat(`Create one short campus feed update (max 10 words) based on recent orders: ${JSON.stringify(db.orders.slice(0,10))}`, {temperature:0.8});
+                                            const newFeed = [{id:Date.now(), text:u, time:"Just now", type:"ai"}, ...db.feed];
+                                            setDb(prev=> ({ ...prev, feed: newFeed }));
+                                            setAiBusy(false);
+                                            setAiReply(null);
+                                        }}>Generate Feed (AI)</button>
+
+                                        <button className="glass py-2 px-3 rounded-xl text-sm" onClick={async ()=>{
+                                            setAiReply("Getting suggestion...");
+                                            setAiBusy(true);
+                                            const suggestion = await customerAssistant("Recommend a snack for late night study", db);
+                                            setAiReply(suggestion);
+                                            setAiBusy(false);
+                                            setTimeout(()=> setAiReply(null), 5000);
+                                        }}>Ask Customer AI</button>
+
+                                        <button className="ai-btn micro" onClick={handleRecommendCombos}>Recommend Combos</button>
+                                    </div>
+
+                                    {aiReply && <div className="mt-3 p-3 bg-black/40 rounded">{aiReply}</div>}
+                                </div>
+
+                                <div>
+                                    <h3 className="text-2xl font-black mb-4 flex items-center gap-2">Hungry? <span className="text-neon-yellow text-lg">🤤</span></h3>
+                                    <div className="grid gap-4">
+                                        {db.vendors.map(v => (
+                                            <div key={v.id} onClick={() => setActiveVendor(v)} className="glass p-4 rounded-3xl flex gap-4 items-center active:scale-95 transition-all hover:bg-white/5 cursor-pointer border border-transparent hover:border-white/10">
+                                                <div className="w-16 h-16 bg-dark-800 rounded-2xl flex items-center justify-center text-3xl shadow-lg">{v.img}</div>
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-start">
+                                                        <h3 className="font-bold text-lg">{v.name}</h3>
+                                                        <span className="text-[10px] bg-neon-green/10 text-neon-green px-2 py-0.5 rounded font-mono">{v.wait}m</span>
+                                                    </div>
+                                                    <p className="text-gray-500 text-xs mb-2">{v.tags.join(' • ')}</p>
+                                                    <div className="flex gap-2 text-xs">
+                                                        <span className="bg-white/5 px-2 py-0.5 rounded text-yellow-400 border border-white/5">⭐ {v.rating}</span>
+                                                        <span className="bg-white/5 px-2 py-0.5 rounded text-purple-300 border border-white/5">{v.vibe}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* DOCK & FLOATING CART */}
+                    <div className="absolute bottom-0 w-full p-4 z-40 bg-gradient-to-t from-black via-dark-900 to-transparent pointer-events-none">
+                        <div className="pointer-events-auto max-w-md mx-auto">
+                            <AnimatePresence>
+                                {cart.length > 0 && (
+                                    <motion.div initial={{y:50, opacity:0}} animate={{y:0, opacity:1}} exit={{y:50, opacity:0}} className="glass bg-dark-800/90 border-neon-red/50 p-4 rounded-2xl mb-4 shadow-[0_0_30px_rgba(255,94,94,0.2)] backdrop-blur-xl">
+                                        <div onClick={()=>{}} className="flex justify-between items-center mb-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-neon-red rounded-lg flex items-center justify-center font-bold text-black">{cart.length}</div>
+                                                <div>
+                                                    <p className="font-bold text-white">Total: ₹{cart.reduce((a,b)=>a+b.price,0)}</p>
+                                                    <p className="text-[10px] text-gray-400">Tap to view details</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={async ()=>{
+                                                    // AI upsell suggestion before payment
+                                                    setAiBusy(true);
+                                                    const ups = await suggestUpsells(cart, db);
+                                                    setAiBusy(false);
+                                                    if(confirm("AI suggests:\n\n" + ups + "\n\nAdd suggested item(s)?")) {
+                                                        alert("You can add suggested items manually from menu.");
+                                                    }
+                                                }} className="px-3 py-2 glass rounded-xl">AI Upsell</button>
+
+                                                <button onClick={()=>{
+                                                    placeOrder();
+                                                }} className="px-6 py-2.5 bg-white text-black rounded-xl font-black text-sm hover:scale-105 transition-transform">PAY ₹{cart.reduce((a,b)=>a+b.price,0)}</button>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            <nav className="glass rounded-full p-2 flex justify-around items-center backdrop-blur-2xl border border-white/10 shadow-2xl bg-black/40">
+                                <NavIcon icon="fa-house" active={!false} onClick={()=>{}} />
+                                <NavIcon icon="fa-bolt" badge={db.user.streak} color="text-neon-yellow" />
+                                <button className="w-14 h-14 bg-gradient-to-tr from-white to-gray-300 text-black rounded-full text-xl flex items-center justify-center -mt-10 shadow-[0_0_20px_rgba(255,255,255,0.4)] border-4 border-dark-900 active:scale-95 transition-transform">
+                                    <i className="fa-solid fa-qrcode"></i>
+                                </button>
+                                <NavIcon icon="fa-gift" />
+                                <NavIcon icon="fa-user" />
+                            </nav>
+                        </div>
+                    </div>
+                </motion.div>
+            );
+        };
+
+        // Vendor OS (unchanged structure; AI wired)
+        const VendorOS = ({ setView, db, setDb, resetData, setAiBusy }) => {
+            const [tab, setTab] = useState('orders');
+            const [gptInput, setGptInput] = useState('');
+            const chatEndRef = useRef(null);
+            const [aiWorking, setAiWorking] = useState(false);
+
+            useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [db.chatHistory]);
+
+            const handleGPT = async (e) => {
+                e?.preventDefault?.();
+                if(!gptInput.trim()) return;
+
+                const userMsg = {role:'user', text:gptInput};
+                setDb(prev => ({ ...prev, chatHistory: [...prev.chatHistory, userMsg] }));
+                setGptInput('');
+                setAiWorking(true);
+                setAiBusy(true);
+
+                setDb(prev => ({ ...prev, chatHistory: [...prev.chatHistory, {role:'ai', text:'🤖 Thinking...'}] }));
+
+                const reply = await vendorGPT(userMsg.text, db);
+
+                setDb(prev => {
+                    const prevHistory = prev.chatHistory.slice();
+                    if(prevHistory.length && prevHistory[prevHistory.length -1]?.text === '🤖 Thinking...') prevHistory.pop();
+                    return { ...prev, chatHistory: [...prevHistory, {role:'ai', text: reply}] };
+                });
+
+                setAiWorking(false);
+                setAiBusy(false);
+            };
+
+            const handleGeneratePromo = async () => {
+                setAiWorking(true);
+                setAiBusy(true);
+                const vendorName = db.vendors?.[0]?.name || "Vendor";
+                const promo = await generatePromoText(vendorName, db);
+                setDb(prev => ({ ...prev, feed: [{id:Date.now(), text: `${vendorName}: ${promo.headline || promo.raw || promo}`, time:"Just now", type:"promo"}, ...prev.feed]}));
+                setAiWorking(false);
+                setAiBusy(false);
+                alert("Promo generated and added to feed.");
+            };
+
+            const handlePredict = async () => {
+                setAiWorking(true);
+                setAiBusy(true);
+                const prediction = await predictOrders(db);
+                setAiWorking(false);
+                setAiBusy(false);
+                alert("Order Prediction (AI):\n\n" + prediction);
+            };
+
+            const handleAnalyze = async () => {
+                setAiWorking(true);
+                setAiBusy(true);
+                const analysis = await analyzeFeedback(db);
+                setAiWorking(false);
+                setAiBusy(false);
+                alert("Feedback Analysis:\n\n" + analysis);
+            };
+
+            const handleGenFAQ = async () => {
+                setAiWorking(true);
+                setAiBusy(true);
+                const faq = await generateFAQ(db);
+                setDb(prev => ({ ...prev, generatedFAQ: faq }));
+                setAiWorking(false);
+                setAiBusy(false);
+                alert("FAQ generated — view in vendor panel.");
+            };
+
+            return (
+                <motion.div initial={{opacity:0, scale:0.95}} animate={{opacity:1, scale:1}} exit={{opacity:0}} className="h-full flex flex-col bg-dark-900">
+                    <div className="p-4 pt-6 border-b border-white/10 bg-dark-800 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-neon-green rounded-xl flex items-center justify-center text-black font-black text-xl shadow-[0_0_15px_#78FFD6]">V</div>
+                            <div>
+                                <h2 className="font-bold text-lg text-white">Vendor<span className="text-neon-green">OS</span></h2>
+                                <p className="text-[10px] text-neon-green flex items-center gap-1"><span className="w-1.5 h-1.5 bg-neon-green rounded-full animate-pulse"></span> AI Agent Active</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={resetData} className="text-xs bg-red-500/20 text-red-400 px-3 py-1 rounded-full border border-red-500/20">Reset</button>
+                            <button onClick={() => setView('landing')} className="text-xs bg-white/10 px-3 py-1 rounded-full hover:bg-white/20">Exit</button>
+                        </div>
+                    </div>
+
+                    <div className="flex p-2 bg-dark-900 gap-2 sticky top-0 z-20">
+                        <button onClick={()=>setTab('orders')} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${tab==='orders'?'bg-white text-black shadow-lg':'text-gray-500 hover:bg-white/5'}`}>
+                             Live KDS {db.orders.filter(o=>o.status==='pending').length > 0 && <span className="ml-1 bg-red-500 text-white px-1.5 rounded-full text-[10px]">{db.orders.filter(o=>o.status==='pending').length}</span>}
+                        </button>
+                        <button onClick={()=>setTab('gpt')} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${tab==='gpt'?'bg-gradient-to-r from-neon-purple to-neon-blue text-white shadow-lg':'text-gray-500 hover:bg-white/5'}`}>
+                            VendorGPT 🧠
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 bg-dots">
+                        {tab === 'orders' ? (
+                            <div className="space-y-4 pb-20">
+                                <div className="grid grid-cols-2 gap-3 mb-4">
+                                    <div className="glass p-3 rounded-xl border-l-4 border-neon-green">
+                                        <p className="text-[10px] text-gray-400 uppercase">Revenue</p>
+                                        <p className="text-xl font-mono font-bold">₹{db.orders.reduce((a,b)=>a+b.total,0)}</p>
+                                    </div>
+                                    <div className="glass p-3 rounded-xl border-l-4 border-neon-blue">
+                                        <p className="text-[10px] text-gray-400 uppercase">Orders</p>
+                                        <p className="text-xl font-mono font-bold">{db.orders.length}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2 mb-4">
+                                    <button onClick={handleGeneratePromo} className="glass px-3 py-2 rounded-xl font-bold">Generate Promo (AI)</button>
+                                    <button onClick={handlePredict} className="glass px-3 py-2 rounded-xl font-bold">Predict Orders (AI)</button>
+                                    <button onClick={handleAnalyze} className="glass px-3 py-2 rounded-xl font-bold">Analyze Feedback (AI)</button>
+                                    <button onClick={handleGenFAQ} className="glass px-3 py-2 rounded-xl font-bold">Generate FAQ (AI)</button>
+                                    {aiWorking && <div className="px-3 py-2 rounded-xl glass">AI working...</div>}
+                                </div>
+
+                                {db.orders.length === 0 && (
+                                    <div className="text-center text-gray-600 mt-20 flex flex-col items-center">
+                                        <i className="fa-solid fa-mug-hot text-4xl mb-3 opacity-50"></i>
+                                        <p>Kitchen is quiet.</p>
+                                    </div>
+                                )}
+
+                                {db.orders.map(order => (
+                                    <div key={order.id} className={`p-4 rounded-2xl border transition-all ${order.status === 'pending' ? 'bg-neon-red/5 border-neon-red/40 shadow-[0_0_20px_rgba(255,94,94,0.1)]' : 'bg-dark-800 border-white/5 opacity-80'}`}>
+                                        <div className="flex justify-between mb-3 border-b border-white/5 pb-2">
+                                            <div className="flex flex-col">
+                                                <span className="font-mono text-xs text-neon-green">#{order.id.slice(-4)}</span>
+                                                <span className="text-[10px] text-gray-500">{order.time}</span>
+                                            </div>
+                                            <span className="font-bold text-lg">{order.customer}</span>
+                                        </div>
+                                        <div className="mb-4 space-y-1">
+                                            {order.items.map((item, i) => (
+                                                <div key={i} className="flex justify-between text-sm font-medium text-gray-300">
+                                                    <span>1x {item.name}</span>
+                                                    <span className="text-gray-600">₹{item.price}</span>
+                                                </div>
+                                            ))}
+                                            <div className="flex justify-between pt-2 border-t border-white/5 mt-2 font-bold">
+                                                <span>Total</span>
+                                                <span>₹{order.total}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {order.status === 'pending' && (
+                                                <>
+                                                <button onClick={() => {
+                                                    setDb(prev => ({ ...prev, orders: prev.orders.map(o => o.id === order.id ? { ...o, status: 'cooking' } : o) }));
+                                                }} className="col-span-2 bg-neon-red text-white py-3 rounded-xl font-bold text-sm hover:scale-[1.02] transition-transform">🔥 Start Cooking</button>
+                                                </>
+                                            )}
+                                            {order.status === 'cooking' && (
+                                                <button onClick={() => {
+                                                    setDb(prev => ({ ...prev, orders: prev.orders.map(o => o.id === order.id ? { ...o, status: 'ready' } : o) }));
+                                                }} className="col-span-2 bg-neon-yellow text-black py-3 rounded-xl font-bold text-sm animate-pulse">🔔 Mark Ready</button>
+                                            )}
+                                            {order.status === 'ready' && (
+                                                <button onClick={() => {
+                                                    setDb(prev => ({ ...prev, orders: prev.orders.map(o => o.id === order.id ? { ...o, status: 'completed' } : o) }));
+                                                }} className="col-span-2 bg-green-500 text-white py-3 rounded-xl font-bold text-sm">✅ Complete Order</button>
+                                            )}
+                                            {order.status === 'completed' && (
+                                                <div className="col-span-2 text-center text-xs text-gray-500 font-mono py-2">Order Fulfilled</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="h-full flex flex-col">
+                                <div className="flex-1 space-y-4 mb-4 overflow-y-auto hide-scroll px-1">
+                                    {db.chatHistory.map((msg, i) => (
+                                        <div key={i} className={`flex ${msg.role === 'ai' ? 'justify-start' : 'justify-end'}`}>
+                                            <div className={`p-4 max-w-[85%] rounded-2xl text-sm leading-relaxed shadow-lg ${msg.role === 'ai' ? 'bg-dark-800 border border-white/10 rounded-tl-none' : 'bg-gradient-to-br from-neon-purple to-neon-blue text-white rounded-tr-none'}`}>
+                                                {msg.text}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div ref={chatEndRef}></div>
+                                </div>
+                                <form onSubmit={handleGPT} className="relative pb-2">
+                                    <input value={gptInput} onChange={e=>setGptInput(e.target.value)} placeholder="Ask AI..." className="w-full bg-dark-800 border border-white/10 rounded-full py-4 pl-6 pr-14 text-white focus:border-neon-green focus:outline-none focus:ring-1 focus:ring-neon-green transition-all shadow-lg" />
+                                    <button type="submit" className="absolute right-2 top-2 w-10 h-10 bg-neon-green rounded-full flex items-center justify-center text-black hover:scale-110 hover:rotate-45 transition-all"><i className="fa-solid fa-arrow-up"></i></button>
+                                </form>
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+            );
+        };
+
+        // NavIcon
+        const NavIcon = ({ icon, active, onClick, badge, color }) => (
+            <button onClick={onClick} className={`relative w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all ${active ? 'text-white bg-white/10 scale-110' : 'text-gray-500 hover:text-white'}`}>
+                <i className={`fa-solid ${icon} ${active && color ? color : ''}`}></i>
+                {badge && <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center text-white border border-black">{badge}</span>}
+            </button>
+        );
+
+        // Render
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+    </script>
+</body>
+</html>
